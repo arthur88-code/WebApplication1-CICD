@@ -168,7 +168,7 @@ stages:
     jobs:
       - job: PackageWebApp
         displayName: 'Create WebApplication1 Artifact'
-        steps:
+        steps:GD
           - task: NuGetToolInstaller@1
             displayName: 'Install NuGet'
 
