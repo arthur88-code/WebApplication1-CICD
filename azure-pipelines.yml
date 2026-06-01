@@ -117,7 +117,7 @@ stages:
 # ===================================================================
   - stage: Performance
     displayName: 'Performance Tests'
-    dependsOn: Build
+    dependsOn: IntegrationTest
     condition: succeeded()
     jobs:
       - job: PerformanceTests
@@ -163,10 +163,7 @@ stages:
 # ===================================================================
   - stage: Package
     displayName: 'Package Artifact'
-    dependsOn:
-      - Build
-      - IntegrationTest
-      - Performance
+    dependsOn: Performance
     condition: succeeded()
     jobs:
       - job: PackageWebApp
@@ -201,11 +198,7 @@ stages:
 # ===================================================================
   - stage: Summary
     displayName: 'Test Summary'
-    dependsOn:
-      - Build
-      - IntegrationTest
-      - Performance
-      - Package
+    dependsOn: Package
     condition: always()
     jobs:
       - job: TestSummary
@@ -229,4 +222,5 @@ stages:
               Write-Host "  - Performance Tests: 3"
               Write-Host "============================================"
             displayName: 'Display Test Summary'
+
 
