@@ -16,6 +16,7 @@ variables:
   buildConfiguration: 'Release'
   buildPlatform: 'Any CPU'
   testAssembly: '**\bin\WebApplication1.dll'
+  testResultsRoot: '$(Agent.TempDirectory)\TestResults'
 
 # ===================================================================
 # STAGE 1: BUILD & UNIT TESTS
@@ -58,18 +59,13 @@ stages:
               runTestsInIsolation: true
               codeCoverageEnabled: true
               diagnosticsEnabled: true
-              otherConsoleOptions: '/Logger:trx /ResultsDirectory:$(Agent.TempDirectory)'
-              failTaskOnFailedTests: true
-
-          - task: PublishTestResults@2
-            displayName: 'Publish Unit Test Results'
-            condition: always()
-            inputs:
-              testResultsFormat: 'VSTest'
-              testResultsFiles: '$(Agent.TempDirectory)/**/*.trx'
+              resultsFolder: '$(testResultsRoot)\Unit'
               testRunTitle: 'Unit Tests'
-              failTaskOnFailedTests: true
+              platform: '$(buildPlatform)'
+              configuration: '$(buildConfiguration)'
               publishRunAttachments: true
+              failOnMinTestsNotRun: true
+              minimumExpectedTests: '70'
 
 # ===================================================================
 # STAGE 2: INTEGRATION TESTS
@@ -108,18 +104,13 @@ stages:
               testFiltercriteria: 'TestCategory=Integration'
               runInParallel: false
               diagnosticsEnabled: true
-              otherConsoleOptions: '/Logger:trx /ResultsDirectory:$(Agent.TempDirectory)'
-              failTaskOnFailedTests: true
-
-          - task: PublishTestResults@2
-            displayName: 'Publish Integration Test Results'
-            condition: always()
-            inputs:
-              testResultsFormat: 'VSTest'
-              testResultsFiles: '$(Agent.TempDirectory)/**/*.trx'
+              resultsFolder: '$(testResultsRoot)\Integration'
               testRunTitle: 'Integration Tests'
-              failTaskOnFailedTests: true
+              platform: '$(buildPlatform)'
+              configuration: '$(buildConfiguration)'
               publishRunAttachments: true
+              failOnMinTestsNotRun: true
+              minimumExpectedTests: '10'
 
 # ===================================================================
 # STAGE 3: PERFORMANCE TESTS
@@ -150,6 +141,7 @@ stages:
 
           - task: VSTest@2
             displayName: 'Run Performance Tests'
+            timeoutInMinutes: 10
             inputs:
               testAssemblyVer2: |
                 $(testAssembly)
@@ -157,20 +149,14 @@ stages:
               searchFolder: '$(System.DefaultWorkingDirectory)'
               testFiltercriteria: 'TestCategory=Performance'
               runInParallel: false
-              timeoutInMinutes: 10
               diagnosticsEnabled: true
-              otherConsoleOptions: '/Logger:trx /ResultsDirectory:$(Agent.TempDirectory)'
-              failTaskOnFailedTests: true
-
-          - task: PublishTestResults@2
-            displayName: 'Publish Performance Test Results'
-            condition: always()
-            inputs:
-              testResultsFormat: 'VSTest'
-              testResultsFiles: '$(Agent.TempDirectory)/**/*.trx'
+              resultsFolder: '$(testResultsRoot)\Performance'
               testRunTitle: 'Performance Tests'
-              failTaskOnFailedTests: true
+              platform: '$(buildPlatform)'
+              configuration: '$(buildConfiguration)'
               publishRunAttachments: true
+              failOnMinTestsNotRun: true
+              minimumExpectedTests: '3'
 
 # ===================================================================
 # STAGE 4: PACKAGE ARTIFACT
@@ -225,21 +211,22 @@ stages:
       - job: TestSummary
         displayName: 'Test Summary Report'
         steps:
-          - script: |
-              echo ============================================
-              echo CI/CD AUTOMATED TESTING PIPELINE COMPLETED
-              echo ============================================
-              echo Stages:
-              echo   - Build & Unit Tests
-              echo   - Integration Tests
-              echo   - Performance Tests
-              echo   - Package Artifact
-              echo ============================================
-              echo Total Automated Tests: 83
-              echo   - Unit Tests: 70
-              echo     + Service Unit Tests: 55
-              echo     + Controller Unit Tests: 15
-              echo   - Integration Tests: 10
-              echo   - Performance Tests: 3
-              echo ============================================
+          - pwsh: |
+              Write-Host "============================================"
+              Write-Host "CI/CD AUTOMATED TESTING PIPELINE COMPLETED"
+              Write-Host "============================================"
+              Write-Host "Stages:"
+              Write-Host "  - Build & Unit Tests"
+              Write-Host "  - Integration Tests"
+              Write-Host "  - Performance Tests"
+              Write-Host "  - Package Artifact"
+              Write-Host "============================================"
+              Write-Host "Total Automated Tests: 83"
+              Write-Host "  - Unit Tests: 70"
+              Write-Host "    + Service Unit Tests: 55"
+              Write-Host "    + Controller Unit Tests: 15"
+              Write-Host "  - Integration Tests: 10"
+              Write-Host "  - Performance Tests: 3"
+              Write-Host "============================================"
             displayName: 'Display Test Summary'
+
