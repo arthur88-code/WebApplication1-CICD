@@ -1,0 +1,245 @@
+# CI/CD Automated Testing Pipeline for ASP.NET MVC .NET Framework 4.7.2
+# Stages: Build + Unit Tests -> Integration Tests -> Performance Tests -> Package Artifact
+
+trigger:
+  - main
+  - develop
+
+pr:
+  - main
+  - develop
+
+pool:
+  vmImage: 'windows-latest'
+
+variables:
+  buildConfiguration: 'Release'
+  buildPlatform: 'Any CPU'
+  testAssembly: '**\bin\WebApplication1.dll'
+
+# ===================================================================
+# STAGE 1: BUILD & UNIT TESTS
+# ===================================================================
+stages:
+  - stage: Build
+    displayName: 'Build & Unit Tests'
+    jobs:
+      - job: BuildAndUnitTests
+        displayName: 'Build Solution & Run Unit Tests'
+        steps:
+          - task: NuGetToolInstaller@1
+            displayName: 'Install NuGet Tool'
+
+          - task: NuGetCommand@2
+            displayName: 'Restore NuGet Packages'
+            inputs:
+              command: 'restore'
+              restoreSolution: '**/*.sln'
+
+          - task: VSBuild@1
+            displayName: 'Build Solution (.NET Framework 4.7.2)'
+            inputs:
+              solution: '**/*.sln'
+              msbuildArgs: '/p:DebugType=full'
+              configuration: '$(buildConfiguration)'
+              platform: '$(buildPlatform)'
+              clean: true
+              maximumCpuCount: 0
+
+          - task: VSTest@2
+            displayName: 'Run Unit Tests'
+            inputs:
+              testAssemblyVer2: |
+                $(testAssembly)
+                !**\obj\**
+              searchFolder: '$(System.DefaultWorkingDirectory)'
+              testFiltercriteria: 'TestCategory!=Integration&TestCategory!=Performance'
+              runInParallel: true
+              runTestsInIsolation: true
+              codeCoverageEnabled: true
+              diagnosticsEnabled: true
+              otherConsoleOptions: '/Logger:trx /ResultsDirectory:$(Agent.TempDirectory)'
+              failTaskOnFailedTests: true
+
+          - task: PublishTestResults@2
+            displayName: 'Publish Unit Test Results'
+            condition: always()
+            inputs:
+              testResultsFormat: 'VSTest'
+              testResultsFiles: '$(Agent.TempDirectory)/**/*.trx'
+              testRunTitle: 'Unit Tests'
+              failTaskOnFailedTests: true
+              publishRunAttachments: true
+
+# ===================================================================
+# STAGE 2: INTEGRATION TESTS
+# ===================================================================
+  - stage: IntegrationTest
+    displayName: 'Integration Tests'
+    dependsOn: Build
+    condition: succeeded()
+    jobs:
+      - job: IntegrationTests
+        displayName: 'Run Integration Tests'
+        steps:
+          - task: NuGetToolInstaller@1
+            displayName: 'Install NuGet'
+
+          - task: NuGetCommand@2
+            displayName: 'Restore NuGet Packages'
+            inputs:
+              command: 'restore'
+              restoreSolution: '**/*.sln'
+
+          - task: VSBuild@1
+            displayName: 'Build Solution'
+            inputs:
+              solution: '**/*.sln'
+              configuration: '$(buildConfiguration)'
+              platform: '$(buildPlatform)'
+
+          - task: VSTest@2
+            displayName: 'Run Integration Tests'
+            inputs:
+              testAssemblyVer2: |
+                $(testAssembly)
+                !**\obj\**
+              searchFolder: '$(System.DefaultWorkingDirectory)'
+              testFiltercriteria: 'TestCategory=Integration'
+              runInParallel: false
+              diagnosticsEnabled: true
+              otherConsoleOptions: '/Logger:trx /ResultsDirectory:$(Agent.TempDirectory)'
+              failTaskOnFailedTests: true
+
+          - task: PublishTestResults@2
+            displayName: 'Publish Integration Test Results'
+            condition: always()
+            inputs:
+              testResultsFormat: 'VSTest'
+              testResultsFiles: '$(Agent.TempDirectory)/**/*.trx'
+              testRunTitle: 'Integration Tests'
+              failTaskOnFailedTests: true
+              publishRunAttachments: true
+
+# ===================================================================
+# STAGE 3: PERFORMANCE TESTS
+# ===================================================================
+  - stage: Performance
+    displayName: 'Performance Tests'
+    dependsOn: Build
+    condition: succeeded()
+    jobs:
+      - job: PerformanceTests
+        displayName: 'Run Performance Tests'
+        steps:
+          - task: NuGetToolInstaller@1
+            displayName: 'Install NuGet'
+
+          - task: NuGetCommand@2
+            displayName: 'Restore NuGet Packages'
+            inputs:
+              command: 'restore'
+              restoreSolution: '**/*.sln'
+
+          - task: VSBuild@1
+            displayName: 'Build Solution'
+            inputs:
+              solution: '**/*.sln'
+              configuration: '$(buildConfiguration)'
+              platform: '$(buildPlatform)'
+
+          - task: VSTest@2
+            displayName: 'Run Performance Tests'
+            inputs:
+              testAssemblyVer2: |
+                $(testAssembly)
+                !**\obj\**
+              searchFolder: '$(System.DefaultWorkingDirectory)'
+              testFiltercriteria: 'TestCategory=Performance'
+              runInParallel: false
+              timeoutInMinutes: 10
+              diagnosticsEnabled: true
+              otherConsoleOptions: '/Logger:trx /ResultsDirectory:$(Agent.TempDirectory)'
+              failTaskOnFailedTests: true
+
+          - task: PublishTestResults@2
+            displayName: 'Publish Performance Test Results'
+            condition: always()
+            inputs:
+              testResultsFormat: 'VSTest'
+              testResultsFiles: '$(Agent.TempDirectory)/**/*.trx'
+              testRunTitle: 'Performance Tests'
+              failTaskOnFailedTests: true
+              publishRunAttachments: true
+
+# ===================================================================
+# STAGE 4: PACKAGE ARTIFACT
+# ===================================================================
+  - stage: Package
+    displayName: 'Package Artifact'
+    dependsOn:
+      - Build
+      - IntegrationTest
+      - Performance
+    condition: succeeded()
+    jobs:
+      - job: PackageWebApp
+        displayName: 'Create WebApplication1 Artifact'
+        steps:
+          - task: NuGetToolInstaller@1
+            displayName: 'Install NuGet'
+
+          - task: NuGetCommand@2
+            displayName: 'Restore NuGet Packages'
+            inputs:
+              command: 'restore'
+              restoreSolution: '**/*.sln'
+
+          - task: VSBuild@1
+            displayName: 'Build Web Application Package'
+            inputs:
+              solution: '**/*.sln'
+              configuration: '$(buildConfiguration)'
+              platform: '$(buildPlatform)'
+              msbuildArgs: '/p:DeployOnBuild=true /p:WebPublishMethod=Package /p:PackageAsSingleFile=true /p:SkipInvalidConfigurations=true /p:PackageLocation="$(Build.ArtifactStagingDirectory)\WebApplication1.zip"'
+
+          - task: PublishBuildArtifacts@1
+            displayName: 'Publish CI/CD Artifact'
+            inputs:
+              PathtoPublish: '$(Build.ArtifactStagingDirectory)'
+              ArtifactName: 'WebApplication1-drop'
+              publishLocation: 'Container'
+
+# ===================================================================
+# STAGE 5: SUMMARY
+# ===================================================================
+  - stage: Summary
+    displayName: 'Test Summary'
+    dependsOn:
+      - Build
+      - IntegrationTest
+      - Performance
+      - Package
+    condition: always()
+    jobs:
+      - job: TestSummary
+        displayName: 'Test Summary Report'
+        steps:
+          - script: |
+              echo ============================================
+              echo CI/CD AUTOMATED TESTING PIPELINE COMPLETED
+              echo ============================================
+              echo Stages:
+              echo   - Build & Unit Tests
+              echo   - Integration Tests
+              echo   - Performance Tests
+              echo   - Package Artifact
+              echo ============================================
+              echo Total Automated Tests: 83
+              echo   - Unit Tests: 70
+              echo     + Service Unit Tests: 55
+              echo     + Controller Unit Tests: 15
+              echo   - Integration Tests: 10
+              echo   - Performance Tests: 3
+              echo ============================================
+            displayName: 'Display Test Summary'

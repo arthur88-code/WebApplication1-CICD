@@ -1,0 +1,34 @@
+﻿@{ ViewBag.Title = "Liên Hệ"; }
+<div class="container" style="max-width: 600px;">
+    <div class="card cool-card bg-black">
+        <div class="card-header cool-header text-white text-center">
+            <h4 class="mb-0"><i class="fa-solid fa-paper-plane me-2"></i>Trung Tâm Hỗ Trợ Kỹ Thuật</h4>
+        </div>
+        <div class="card-body p-4">
+            @using (Html.BeginForm("Contact", "Home", FormMethod.Post))
+            {
+                <div class="mb-3">
+                    <label class="form-label text-light">Họ và Tên (2-50 ký tự):</label>
+                    <input type="text" name="name" class="form-control" required />
+                </div>
+                <div class="mb-3">
+                    <label class="form-label text-light">Email hệ thống:</label>
+                    <input type="email" name="email" class="form-control" required />
+                </div>
+                <div class="mb-3">
+                    <label class="form-label text-light">Số điện thoại:</label>
+                    <input type="text" name="phone" class="form-control" required />
+                </div>
+                <div class="mb-4">
+                    <label class="form-label text-light">Nội dung yêu cầu:</label>
+                    <textarea name="message" class="form-control" rows="3" required></textarea>
+                </div>
+                <button type="submit" class="btn btn-cyber w-100 btn-lg btn-primary">Gửi Liên Hệ</button>
+            }
+            @if (ViewBag.Result != null)
+            {
+                <div class="mt-4"><div class="alert alert-custom p-3 text-center text-white">@ViewBag.Result</div></div>
+            }
+        </div>
+    </div>
+</div>

@@ -1,0 +1,67 @@
+name: CI/CD Pipeline
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+env:
+  BUILD_CONFIGURATION: Release
+
+jobs:
+  build-test-package:
+    runs-on: windows-latest
+
+    steps:
+    - name: Checkout source
+      uses: actions/checkout@v4
+
+    - name: Setup MSBuild
+      uses: microsoft/setup-msbuild@v2
+
+    - name: Restore NuGet packages
+      run: nuget restore WebApplication1.sln
+
+    - name: Build solution
+      run: msbuild WebApplication1.sln /p:Configuration=${{ env.BUILD_CONFIGURATION }} /p:Platform="Any CPU"
+
+    - name: Run unit tests
+      shell: pwsh
+      run: |
+        $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
+        $vstest = & $vswhere -latest -products * -find "Common7\IDE\CommonExtensions\Microsoft\TestWindow\vstest.console.exe" | Select-Object -First 1
+        & $vstest "bin\WebApplication1.dll" /TestCaseFilter:"TestCategory!=Integration&TestCategory!=Performance" /Logger:trx /ResultsDirectory:"TestResults\Unit"
+
+    - name: Run integration tests
+      shell: pwsh
+      run: |
+        $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
+        $vstest = & $vswhere -latest -products * -find "Common7\IDE\CommonExtensions\Microsoft\TestWindow\vstest.console.exe" | Select-Object -First 1
+        & $vstest "bin\WebApplication1.dll" /TestCaseFilter:"TestCategory=Integration" /Logger:trx /ResultsDirectory:"TestResults\Integration"
+
+    - name: Run performance tests
+      shell: pwsh
+      run: |
+        $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
+        $vstest = & $vswhere -latest -products * -find "Common7\IDE\CommonExtensions\Microsoft\TestWindow\vstest.console.exe" | Select-Object -First 1
+        & $vstest "bin\WebApplication1.dll" /TestCaseFilter:"TestCategory=Performance" /Logger:trx /ResultsDirectory:"TestResults\Performance"
+
+    - name: Upload test results
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: test-results
+        path: TestResults/
+
+    - name: Upload build artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: WebApplication1-drop
+        path: |
+          bin/
+          Views/
+          Content/
+          Scripts/
+          Web.config

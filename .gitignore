@@ -1,0 +1,36 @@
+# Visual Studio
+.vs/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# Build output
+bin/
+obj/
+[Dd]ebug/
+[Rr]elease/
+x64/
+x86/
+
+# NuGet packages are restored by CI
+packages/
+*.nupkg
+
+# Test output
+TestResults/
+*.trx
+*.coverage
+*.coveragexml
+
+# Publish/package output
+*.zip
+*.deploy.cmd
+*.SetParameters.xml
+*.SourceManifest.xml
+
+# OS/editor files
+.DS_Store
+Thumbs.db
+*.tmp
+*.log
